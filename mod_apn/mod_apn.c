@@ -3,15 +3,10 @@
 #include <switch_core.h>
 #include <switch_curl.h>
 #include <string.h>
-#include <switch_version.h>
 
 SWITCH_MODULE_LOAD_FUNCTION(mod_apn_load);
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_apn_shutdown);
 SWITCH_MODULE_DEFINITION(mod_apn, mod_apn_load, mod_apn_shutdown, NULL);
-
-#define SWITCH_LESS_THAN(x,y)                                                           \
-   (((FS_VERSION_MAJOR == x) && (FS_VERSION_MINOR == y)) || \
-   ((FS_VERSION_MAJOR == x) && (FS_VERSION_MINOR < y)) || (FS_VERSION_MAJOR < x))
 
 static switch_event_node_t *register_event = NULL;
 static switch_event_node_t *push_event = NULL;
@@ -126,6 +121,7 @@ static int do_curl(switch_event_t *event, profile_t *profile)
 	int httpRes = 0;
 	switch_curl_slist_t *headers = NULL;
 	char *query = NULL;
+	char *post_data = NULL;
 
 	const char *url_template = profile->url;
 	const char *method = profile->method;
@@ -150,14 +146,11 @@ static int do_curl(switch_event_t *event, profile_t *profile)
 
 	if (!strcasecmp(method, "post")) {
 		if (!zstr(profile->post_data_template)) {
-			char *post_data = switch_event_expand_headers(event, profile->post_data_template);
+			post_data = switch_event_expand_headers(event, profile->post_data_template);
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "method: %s, url: %s, data: %s\n", method, query,
 							  post_data);
 			switch_curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, strlen(post_data));
 			switch_curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, (void *) post_data);
-
-			if (post_data != profile->post_data_template)
-				switch_safe_free(post_data);
 		}
 		if (content_type) {
 			char *ct = switch_mprintf("Content-Type: %s", content_type);
@@ -196,6 +189,7 @@ static int do_curl(switch_event_t *event, profile_t *profile)
 	switch_curl_slist_free_all(headers);
 
 	if (query != url_template) switch_safe_free(query);
+	if (post_data != profile->post_data_template) switch_safe_free(post_data);
 
 	return httpRes;
 }
@@ -1118,15 +1112,9 @@ static switch_call_cause_t apn_wait_outgoing_channel(switch_core_session_t *sess
 			}
 
 
-#if SWITCH_LESS_THAN(1,8)
-			if (switch_ivr_originate(session, new_session, &cause, destination, current_timelimit, NULL,
-					cid_name_override, cid_num_override, outbound_profile, var_event, flags,
-					cancel_cause) == SWITCH_STATUS_SUCCESS) {
-#else
 			if (switch_ivr_originate(session, new_session, &cause, destination, current_timelimit, NULL,
 					cid_name_override, cid_num_override, outbound_profile, var_event, flags,
 					cancel_cause, NULL) == SWITCH_STATUS_SUCCESS) {
-#endif
 				const char *context;
 				switch_caller_profile_t *cp;
 				switch_channel_t *new_channel = NULL;
