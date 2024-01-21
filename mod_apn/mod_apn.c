@@ -191,7 +191,7 @@ static int do_curl(switch_event_t *event, profile_t *profile)
 	if (query != url_template) switch_safe_free(query);
 	if (post_data != profile->post_data_template) switch_safe_free(post_data);
 
-	return httpRes;
+	return httpRes >= 200 && httpRes < 300;
 }
 
 
@@ -203,8 +203,7 @@ static switch_bool_t mod_apn_send(switch_event_t *event, profile_t *profile)
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "CARUSTO. APN profile not found\n");
 		return ret;
 	}
-
-	if (do_curl(event, profile) == CURLE_OK) {
+	if (do_curl(event, profile)) {
 		ret = SWITCH_TRUE;
 	}
 
